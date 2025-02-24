@@ -1,0 +1,25 @@
+preAnx,postAnx,preDep,postDep,preAnx3Bin,postAnx3Bin,preAnx2Bin,postDepFix,postAnx2Bin
+Moderate A Anxiety,Mild A Anxiety,Depressed,Not Depressed,Moderate A Anxiety,None/Mild A Anxiety,Moderate/High A Anxiety,Not Depressed,None/Mild A Anxiety
+Not Anxious,Not Anxious,Not Depressed,Not Depressed,None/Mild A Anxiety,None/Mild A Anxiety,None/Mild A Anxiety,Depressed,None/Mild A Anxiety
+Mild A Anxiety,Moderate A Anxiety,Depressed,Depressed,None/Mild A Anxiety,Moderate A Anxiety,None/Mild A Anxiety,Depressed,Moderate/High A Anxiety
+Mild A Anxiety,Not Anxious,Not Depressed,Not Depressed,None/Mild A Anxiety,None/Mild A Anxiety,None/Mild A Anxiety,Not Depressed,None/Mild A Anxiety
+Mild A Anxiety,Not Anxious,Not Depressed,Not Depressed,None/Mild A Anxiety,None/Mild A Anxiety,None/Mild A Anxiety,Not Depressed,None/Mild A Anxiety
+Moderate A Anxiety,Not Anxious,Depressed,Not Depressed,Moderate A Anxiety,None/Mild A Anxiety,Moderate/High A Anxiety,Not Depressed,None/Mild A Anxiety
+Moderate A Anxiety,Mild A Anxiety,Depressed,Not Depressed,Moderate A Anxiety,None/Mild A Anxiety,Moderate/High A Anxiety,Not Depressed,None/Mild A Anxiety
+Moderate A Anxiety,Not Anxious,Depressed,Not Depressed,Moderate A Anxiety,None/Mild A Anxiety,Moderate/High A Anxiety,Not Depressed,None/Mild A Anxiety
+Moderate A Anxiety,Moderate A Anxiety,Depressed,Depressed,Moderate A Anxiety,Moderate A Anxiety,Moderate/High A Anxiety,Depressed,Moderate/High A Anxiety
+Not Anxious,Not Anxious,Not Depressed,Not Depressed,None/Mild A Anxiety,None/Mild A Anxiety,None/Mild A Anxiety,Not Depressed,None/Mild A Anxiety
+Moderate A Anxiety,Moderate A Anxiety,Not Depressed,Depressed,Moderate A Anxiety,Moderate A Anxiety,Moderate/High A Anxiety,Depressed,Moderate/High A Anxiety
+Mild A Anxiety,Mild A Anxiety,Depressed,Not Depressed,None/Mild A Anxiety,None/Mild A Anxiety,None/Mild A Anxiety,Not Depressed,None/Mild A Anxiety
+Moderate A Anxiety,Moderate A Anxiety,Depressed,Not Depressed,Moderate A Anxiety,Moderate A Anxiety,Moderate/High A Anxiety,Not Depressed,Moderate/High A Anxiety
+Mild A Anxiety,Moderate A Anxiety,Depressed,Not Depressed,None/Mild A Anxiety,Moderate A Anxiety,None/Mild A Anxiety,Not Depressed,Moderate/High A Anxiety
+Moderate A Anxiety,Moderate A Anxiety,Depressed,Not Depressed,Moderate A Anxiety,Moderate A Anxiety,Moderate/High A Anxiety,Not Depressed,Moderate/High A Anxiety
+Moderate A Anxiety,Moderate A Anxiety,Depressed,Not Depressed,Moderate A Anxiety,Moderate A Anxiety,Moderate/High A Anxiety,Not Depressed,Moderate/High A Anxiety
+High A Anxiety,High A Anxiety,Depressed,Not Depressed,High A Anxiety,High A Anxiety,Moderate/High A Anxiety,Not Depressed,Moderate/High A Anxiety
+High A Anxiety,High A Anxiety,Depressed,Depressed,High A Anxiety,High A Anxiety,Moderate/High A Anxiety,Depressed,Moderate/High A Anxiety
+Mild A Anxiety,Mild A Anxiety,Not Depressed,Not Depressed,None/Mild A Anxiety,None/Mild A Anxiety,None/Mild A Anxiety,Not Depressed,None/Mild A Anxiety
+High A Anxiety,Moderate A Anxiety,Depressed,Not Depressed,High A Anxiety,Moderate A Anxiety,Moderate/High A Anxiety,Not Depressed,Moderate/High A Anxiety
+Moderate A Anxiety,Mild A Anxiety,Depressed,Not Depressed,Moderate A Anxiety,None/Mild A Anxiety,Moderate/High A Anxiety,Not Depressed,None/Mild A Anxiety
+Not Anxious,Not Anxious,Depressed,Not Depressed,None/Mild A Anxiety,None/Mild A Anxiety,None/Mild A Anxiety,Not Depressed,None/Mild A Anxiety
+Moderate A Anxiety,Mild A Anxiety,Not Depressed,Depressed,Moderate A Anxiety,None/Mild A Anxiety,Moderate/High A Anxiety,Depressed,None/Mild A Anxiety
+High A Anxiety,High A Anxiety,Depressed,Depressed,High A Anxiety,High A Anxiety,Moderate/High A Anxiety,Depressed,Moderate/High A Anxiety

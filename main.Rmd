@@ -1,0 +1,562 @@
+---
+title: "Kagendo Project 2"
+output:
+  html_document:
+    code_fold: "hide"
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    df_print: paged
+---
+
+```{r,include = F}
+library(dplyr)
+library(tidyverse)
+library(DescTools)
+library(ggplot2)
+
+library(extrafont)
+loadfonts(device = "win")
+```
+
+```{r,include = F}
+preAnx = c(3,1,2,2,2,3,3,1,3,3,1,3,2,3,2,3,3,4,4,2,4,3,1,3,4)
+
+postAnx = c(2,1,3,1,1,1,2,3,1,3,1,3,2,3,3,3,3,4,4,2,3,2,1,2,4)
+
+preDep = c(1,0,1,0,0,1,1,NA,1,1,0,0,1,1,1,1,1,1,1,0,1,1,1,0,1)
+
+postDep = c(0,0,1,0,0,0,0,NA,0,1,0,1,0,0,0,0,0,0,1,0,0,0,0,1,1)
+
+survey = data.frame(cbind(preAnx,postAnx,preDep,postDep))
+
+survey = survey %>% mutate(preAnxBin = if_else(preAnx %in% c(3,4),1,0)) %>% 
+  mutate(postAnxBin = if_else(postAnx %in% c(3,4),1,0))
+
+surveyOut = survey %>% mutate(preAnx3Bin = case_when(
+  preAnx == 1 ~ "None/Mild A Anxiety",
+  preAnx == 2 ~ "None/Mild A Anxiety",
+  preAnx == 3 ~ "Moderate A Anxiety",
+  preAnx == 4 ~ "High A Anxiety"
+)) %>% 
+  mutate(postAnx3Bin = case_when(
+  postAnx == 1 ~ "None/Mild A Anxiety",
+  postAnx == 2 ~ "None/Mild A Anxiety",
+  postAnx == 3 ~ "Moderate A Anxiety",
+  postAnx == 4 ~ "High A Anxiety"
+)) %>%
+  mutate(
+  preAnx = case_when(
+    preAnx == 1 ~ "Not Anxious",
+    preAnx == 2 ~ "Mild A Anxiety",
+    preAnx == 3 ~ "Moderate A Anxiety",
+    preAnx == 4 ~ "High A Anxiety",
+  )
+) %>% 
+  mutate(
+  postAnx = case_when(
+    postAnx == 1 ~ "Not Anxious",
+    postAnx == 2 ~ "Mild A Anxiety",
+    postAnx == 3 ~ "Moderate A Anxiety",
+    postAnx == 4 ~ "High A Anxiety",
+  )
+)%>% mutate(
+  postDep = case_when(
+    postDep == 0 ~ "Not Depressed",
+    postDep == 1 ~ "Depressed",
+  )
+) %>% mutate(
+  preDep = case_when(
+    preDep == 0 ~ "Not Depressed",
+    preDep == 1 ~ "Depressed",
+  )
+) %>% mutate(
+  preAnx2Bin = case_when(
+    preAnxBin == 0 ~ "None/Mild A Anxiety",
+    preAnxBin == 1 ~ "Moderate/High A Anxiety",
+  )
+) %>% mutate(postDepFix = postDep) %>%
+  mutate(
+  postAnx2Bin = case_when(
+    postAnxBin == 0 ~ "None/Mild A Anxiety",
+    postAnxBin == 1 ~ "Moderate/High A Anxiety",
+  )
+) 
+surveyOut$postDepFix[2] = "Depressed"
+
+table(surveyOut$preAnxBin,surveyOut$preDep)
+
+surveyOut = surveyOut %>% select(-preAnxBin,-postAnxBin)
+write_csv(surveyOut,"surveyOut.csv")
+  
+```
+
+# 4 Category Anxiety
+
+## Setup
+```{r}
+cont = data.frame(matrix(rep(0,16),nrow = 4))
+
+# Making cont table
+for (i in 1:nrow(survey)){
+  
+  # Pre anxiety as row
+  row = survey[i,1] 
+  
+  # Post anxiety as column
+  column = survey[i,2]
+  
+  cont[row,column] = cont[row,column] + 1
+  
+}
+
+
+
+```
+
+## Bowker Test
+```{r}
+
+BowkerTest <- function(df) {
+  if(nrow(df))
+  
+  # Extract upper triangle and lower triangle
+  chisq <- 0
+  for (i in 1:(nrow(df) - 1)) {
+    for (j in (i + 1):ncol(df)) {
+      num <- (df[i, j] - df[j, i])^2
+      denom <- df[i, j] + df[j, i]
+      if (denom > 0) {
+        chisq <- chisq + num / denom
+      }
+    }
+  }
+  
+  dof <- (nrow(df) * (nrow(df) - 1)) / 2  # Degrees of freedom
+  pval <- pchisq(chisq, dof, lower.tail = FALSE)
+  
+  return(list(chisq = chisq, dof = dof, pval = pval))
+}
+
+result = BowkerTest(cont)
+print(result)
+```
+
+## Statistical Tests of Differences
+```{r}
+StuartMaxwellTest(as.matrix(cont))
+
+mcnemar.test(as.matrix(cont + .001))
+```
+
+## Graphical Representation
+```{r}
+postCount = c(table(data.frame(survey)$postAnx))
+
+preCount = c(table(data.frame(survey)$preAnx))
+
+x = c("None","Mild","Moderate","High")
+
+postDf = data.frame(cbind(Count = as.numeric(postCount),Category = x,Time = "After"))
+
+preDf = data.frame(cbind(Count = as.numeric(preCount),Category = x,Time = "Before"))
+
+anxGraph = preDf %>% bind_rows(postDf)
+
+anxGraph = anxGraph %>% mutate(Time = factor(Time,levels = c("Before","After"))) %>%
+  mutate(Category = factor(Category,levels = c("None","Low","Moderate","High"))) %>% 
+  mutate(Count = as.numeric(Count))
+
+rownames(anxGraph) <- NULL
+
+ggplot(aes(x = Category, y = Count,fill = Time),data = anxGraph) + 
+  geom_bar(stat = "identity",position = position_dodge(width = 1)) + 
+    scale_fill_brewer(palette = "Set1") + theme_minimal() + 
+  labs(x = "Anxiety Category",
+       title = "Number Indicating Anxiety Before and After HESM 285") + theme(
+    text = element_text(family = "Calibri"),
+    axis.text = element_text(family = "Calibri"),
+    axis.title = element_text(family = "Calibri"),
+    legend.text = element_text(family = "Calibri"),
+    legend.title = element_text(family = "Calibri"),
+    plot.title = element_text(family = "Calibri")
+  )
+```
+
+# 2 Category Anxiety Test 
+
+```{r}
+cont = matrix(rep(0,4),nrow = 2)
+
+# Making cont table
+for (i in 1:nrow(survey)){
+  
+  # Pre anxiety as row
+  row = survey[i,5] + 1
+  
+  # Post anxiety as column
+  column = survey[i,6] + 1
+  
+  cont[row,column] = cont[row,column] + 1
+  
+}
+
+
+mcnemar.test(t(cont))
+```
+
+## Graph
+
+```{r}
+postCount = c(table(survey$postAnxBin))
+
+preCount = c(table(survey$preAnxBin))
+
+x = c("None-Mild","Mod-High")
+
+postDf = data.frame(cbind(Count = postCount,Category = x,Time = "After"))
+
+preDf = data.frame(cbind(Count = preCount,Category = x,Time = "Before"))
+
+anx2Graph = preDf %>% bind_rows(postDf)
+
+anx2Graph
+
+anx2Graph = anx2Graph %>% mutate(Time = factor(Time,levels = c("Before","After"))) %>%
+  mutate(Category = factor(Category)) %>% 
+  mutate(Count = as.numeric(Count))
+
+#rownames(anx2Graph) <- NULL
+
+
+ggplot(aes(x = Category, y = Count,fill = Time),data = anx2Graph) + 
+  geom_bar(stat = "identity",position = position_dodge(width = 1)) + 
+    scale_fill_brewer(palette = "Set1") + theme_minimal() + 
+  labs(x = "Anxiety Category",
+       title = "Number Indicating Anxiety Before and After HESM 285") + theme(
+    text = element_text(family = "Calibri"),
+    axis.text = element_text(family = "Calibri"),
+    axis.title = element_text(family = "Calibri"),
+    legend.text = element_text(family = "Calibri"),
+    legend.title = element_text(family = "Calibri"),
+    plot.title = element_text(family = "Calibri")
+  )
+```
+
+# Depression
+
+## Setup
+```{r}
+cont = matrix(rep(0,4),nrow = 2)
+
+# Making cont table
+for (i in 1:nrow(survey)){
+  
+  # Pre anxiety as row
+  row = survey[i,3] + 1
+  
+  # Post anxiety as column
+  column = survey[i,4] + 1
+  
+  cont[row,column] = cont[row,column] + 1
+  
+}
+
+mcnemar.test(t(cont))
+
+t(cont)
+```
+
+## Graph
+```{r}
+surveyDep = survey[-8,]
+
+postCount = c(table(surveyDep$postDep))[2]
+
+preCount = c(table(surveyDep$preDep))[2]
+
+x = c(" ")
+
+
+postDf = data.frame(cbind(Count = postCount,Category = x,Time = "After"))
+
+preDf = data.frame(cbind(Count = preCount,Category = x,Time = "Before"))
+
+depGraph = preDf %>% bind_rows(postDf)
+
+depGraph = depGraph %>% mutate(Time = factor(Time,levels = c("Before","After"))) %>%
+  mutate(Category = factor(Category,levels = c("Not Depressed"," "))) %>% 
+  mutate(Count = as.numeric(Count))
+
+rownames(depGraph) <- NULL
+
+
+ggplot(aes(x = Category, y = Count,fill = Time),data = depGraph) + 
+  geom_bar(stat = "identity",position = position_dodge(width = 1)) + 
+    scale_fill_brewer(palette = "Set1") + theme_minimal() + 
+  labs(x = "Depressed",
+       title = "Number Indicating Depression Before and After HESM 285") + theme(
+    text = element_text(family = "Calibri"),
+    axis.text = element_text(family = "Calibri"),
+    axis.title = element_text(family = "Calibri"),
+    legend.text = element_text(family = "Calibri"),
+    legend.title = element_text(family = "Calibri"),
+    plot.title = element_text(family = "Calibri")
+  )
+```
+
+# Logistic Regression
+
+## 4 Category Anxiety
+
+### Setup
+
+```{r}
+table(survey$postAnx,survey$postDep)
+```
+0 in table for post dep ~ anx need to fix
+
+
+```{r}
+# Adding in a 1 for Anxiety 1 depression 1
+
+surveyPost = survey
+
+surveyPost[2,4] = 1
+
+table(surveyPost$postAnx,surveyPost$postDep)
+
+```
+Altering data to make logistic regression possible by changing one row to have 1 instead of 0
+
+### Results
+```{r}
+postLM = glm(factor(postDep) ~ factor(postAnx), data = surveyPost,family = binomial)
+
+summary(postLM)
+
+preLM = glm(factor(preDep) ~ factor(preAnx), data = survey,family = binomial)
+
+summary(preLM)
+```
+
+## 2 Category Anxiety
+
+```{r}
+postLM = glm(factor(postDep) ~ factor(postAnxBin), data = survey,family = binomial)
+
+summary(postLM)
+c
+preLM = glm(factor(preDep) ~ factor(preAnxBin), data = survey,family = binomial)
+
+summary(preLM)
+
+```
+
+```{r}
+postLM = glm(factor(preDep) ~ factor(preAnx2Bin), data = surveyOut,family = binomial)
+
+
+summary(postLM)
+
+table(surveyOut$preDep,surveyOut$preAnx3Bin)
+
+
+write_csv(surveyOut[-8,],"surveyOutNARM.csv",)
+```
+
+```{r}
+A = data.frame(Dep = surveyOut$postDep, Anx = surveyOut$postAnx2Bin)
+
+postGraph = table(A$Dep,A$Anx) %>% data.frame() %>% rename("Depression" = Var1,"Anxiety" = Var2,"Count" = Freq)
+
+ggplot(aes(x = Anxiety, y = Count,fill = Depression),data = postGraph) + 
+  geom_bar(stat = "identity",position = position_dodge(width = 1)) + 
+    scale_fill_brewer(palette = "Set2") + theme_minimal() + scale_y_continuous(breaks = seq(0, 12, by = 4), limits = c(0, 13)) + 
+  labs(x = "Anxiety Category",
+       title = "Anxiety Versus Depression Post HESM 285") + theme(
+    text = element_text(family = "Calibri"),
+    axis.text = element_text(family = "Calibri"),
+    axis.title = element_text(family = "Calibri"),
+    legend.text = element_text(family = "Calibri"),
+    legend.title = element_text(family = "Calibri"),
+    plot.title = element_text(family = "Calibri")
+  )
+
+
+
+```
+
+```{r}
+A = data.frame(Dep = surveyOut$preDep, Anx = surveyOut$preAnx2Bin)
+
+preGraph = table(A$Dep,A$Anx) %>% data.frame() %>% rename("Depression" = Var1,"Anxiety" = Var2,"Count" = Freq)
+
+ggplot(aes(x = Anxiety, y = Count,fill = Depression),data = preGraph) + 
+  geom_bar(stat = "identity",position = position_dodge(width = 1)) + 
+    scale_fill_brewer(palette = "Set2") + theme_minimal() + 
+  labs(x = "Anxiety Category",
+       title = "Anxiety Versus Depression Pre HESM 285") + theme(
+    text = element_text(family = "Calibri"),
+    axis.text = element_text(family = "Calibri"),
+    axis.title = element_text(family = "Calibri"),
+    legend.text = element_text(family = "Calibri"),
+    legend.title = element_text(family = "Calibri"),
+    plot.title = element_text(family = "Calibri")
+  )
+```
+
+
+## 4 Cat Anx Graph
+
+```{r}
+
+anxGraph = anxGraph %>% mutate(Category = if_else(is.na(Category),"Low",Category))
+
+anxGraph$Category
+ggplot(aes(x = Category, y = Count,fill = Time),data = anxGraph) + 
+  geom_bar(stat = "identity",position = position_dodge(width = 1)) + 
+  theme_minimal() + 
+  scale_x_discrete(limits = c("None","Low","Moderate","High")) +
+  scale_fill_manual(
+    values = c(
+      "Before" = "#DF2C1A",
+      "After" = "#397DB5"
+    )
+  ) + 
+  labs(x = "Anxiety Level",
+       y = "Number of Studetnts",
+       title = "Anxiety Before and After HESM 285") + theme(
+    text = element_text(family = "Calibri"),
+    axis.text = element_text(family = "Calibri"),
+    axis.title = element_text(family = "Calibri",hjust = .5),
+        axis.title.y = element_text(family = "Calibri",vjust = .5),
+    legend.text = element_text(family = "Calibri"),
+    legend.title = element_text(family = "Calibri"),
+    plot.title = element_text(family = "Calibri",hjust = .5,face = "bold")
+  )
+ggsave("GraphV3/anx4cat.png",width = 6, height = 4,dpi = 300,bg = "white")
+
+```
+
+## 2 Cat Anx Graph
+
+```{r}
+
+levels(anx2Graph$Category) <- c("Moderate/High A Anxiety","None/Mild A Anxiety")
+
+ggplot(aes(x = Category, y = Count,fill = Time),data = anx2Graph) + 
+  geom_bar(stat = "identity",position = position_dodge(width = 1)) + 
+     theme_minimal() + 
+  scale_x_discrete(limits = rev(levels(anx2Graph$Category))) +
+  scale_fill_manual(
+    values = c(
+    "Before" = "#DF2C1A",
+      "After" = "#397DB5"
+    )
+  ) +
+  labs(x = "Anxiety Level",
+       y = "Number of Studetnts",
+       title = "Anxiety Before and After HESM 285") + theme(
+    text = element_text(family = "Calibri"),
+    axis.text = element_text(family = "Calibri"),
+    axis.title = element_text(family = "Calibri"),
+        axis.title.y = element_text(family = "Calibri",vjust = .5),
+    legend.text = element_text(family = "Calibri"),
+    legend.title = element_text(family = "Calibri"),
+    plot.title = element_text(family = "Calibri",hjust = .5,face = "bold"),
+    # legend.position = c(1,1)
+    
+  )
+ggsave("GraphV3/anx2cat.png",width = 6, height = 4,dpi = 300,bg = "white")
+```
+
+
+## Anx vs Depress Post
+
+```{r}
+ggplot(aes(x = Anxiety, y = Count, fill = Depression), data = postGraph) + 
+  geom_bar(stat = "identity", position = position_dodge(width = 1)) + 
+  theme_minimal() + 
+  scale_y_continuous(breaks = seq(0, 12, by = 4), limits = c(0, 13)) + 
+  scale_x_discrete(limits = rev(levels(postGraph$Anxiety))) + 
+  scale_fill_manual(values = c("Depressed" = "#E69F00", "Not Depressed" = "#009E73")) + 
+  labs(
+    x = "Anxiety Level",
+    title = "Anxiety Versus Depression Post HESM 285",
+    y = "Number of Studetnts"
+  ) + 
+  theme(
+    text = element_text(family = "Calibri"),
+    axis.text = element_text(family = "Calibri"),
+    axis.title = element_text(family = "Calibri"),
+        axis.title.y = element_text(family = "Calibri",vjust = .5),
+    legend.text = element_text(family = "Calibri"),
+    legend.title = element_text(family = "Calibri"),
+    plot.title = element_text(family = "Calibri",hjust = .5,face = "bold")
+  )
+
+
+ggsave("GraphV3/anxDepPost.png",width = 6, height = 4,dpi = 300,bg = "white")
+
+```
+
+## Anxiety Across Depression Pre
+
+```{r}
+ggplot(aes(x = Anxiety, y = Count,fill = Depression),data = preGraph) + 
+  geom_bar(stat = "identity",position = position_dodge(width = 1)) + 
+    theme_minimal() + 
+    scale_x_discrete(limits = rev(levels(preGraph$Anxiety))) + 
+    scale_fill_manual(
+      values = c("Depressed" = "#E69F00", "Not Depressed" = "#009E73")
+    ) + 
+    labs(x = "Anxiety Level",
+       title = "Anxiety Versus Depression Pre HESM 285",
+       y = "Number of Studetnts") + theme(
+    text = element_text(family = "Calibri"),
+    axis.text = element_text(family = "Calibri"),
+        axis.title.y = element_text(family = "Calibri",vjust = .5),
+    axis.title = element_text(family = "Calibri"),
+    legend.text = element_text(family = "Calibri"),
+    legend.title = element_text(family = "Calibri"),
+    plot.title = element_text(family = "Calibri",hjust = .5,face = "bold")
+  )
+ggsave("GraphV3/anxDepPre.png",width = 6, height = 4,dpi = 300,bg = "white")
+
+```
+## Depression Graph 
+
+```{r}
+
+depGraph$Category <- c("Not Depressed","Depressed")
+ggplot(aes(x = Category, y = Count,fill = Time),data = depGraph) + 
+  geom_bar(stat = "identity",position = position_dodge(width = 1)) + 
+    theme_minimal() + 
+  scale_x_discrete(limits = c("Not Depressed","Depressed")) + 
+  scale_fill_manual(
+    values = c(
+      "Before" = "#DF2C1A",
+      "After" = "#397DB5"
+    )
+  ) + 
+  labs(x = "Depression",
+       title = "Depression Before and After HESM 285",
+       y = "Number of Studetnts") +  theme(
+    text = element_text(family = "Calibri"),
+    axis.text = element_text(family = "Calibri"),
+    axis.title.y = element_text(family = "Calibri",vjust = .5),
+    axis.title = element_text(family = "Calibri"),
+    legend.text = element_text(family = "Calibri"),
+    legend.title = element_text(family = "Calibri"),
+    plot.title = element_text(family = "Calibri",face = "bold",hjust = .5)
+  )
+
+ggsave("GraphV3/depression.png",width = 6, height = 4,dpi = 300,bg = "white")
+
+```
+
+```{r}
+
+```
+
