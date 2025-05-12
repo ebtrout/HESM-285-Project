@@ -87,7 +87,7 @@ surveyOut$postDepFix[2] = "Depressed"
 table(surveyOut$preAnxBin,surveyOut$preDep)
 
 surveyOut = surveyOut %>% select(-preAnxBin,-postAnxBin)
-write_csv(surveyOut,"surveyOut.csv")
+write_csv(surveyOut,"data/surveyOut.csv")
   
 ```
 
@@ -362,7 +362,7 @@ summary(postLM)
 table(surveyOut$preDep,surveyOut$preAnx3Bin)
 
 
-write_csv(surveyOut[-8,],"surveyOutNARM.csv",)
+write_csv(surveyOut[-8,],"data/surveyOutNARM.csv",)
 ```
 
 ```{r}
