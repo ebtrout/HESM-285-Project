@@ -1,5 +1,5 @@
 ---
-title: "Kagendo Project 2"
+title: "HESM-285 Research Project"
 output:
   html_document:
     code_fold: "hide"
@@ -19,7 +19,8 @@ library(extrafont)
 loadfonts(device = "win")
 ```
 
-```{r,include = F}
+# Data Manip / Print Data
+```{r}
 preAnx = c(3,1,2,2,2,3,3,1,3,3,1,3,2,3,2,3,3,4,4,2,4,3,1,3,4)
 
 postAnx = c(2,1,3,1,1,1,2,3,1,3,1,3,2,3,3,3,3,4,4,2,3,2,1,2,4)
@@ -84,72 +85,169 @@ surveyOut = survey %>% mutate(preAnx3Bin = case_when(
 ) 
 surveyOut$postDepFix[2] = "Depressed"
 
-table(surveyOut$preAnxBin,surveyOut$preDep)
-
+# Output data
 surveyOut = surveyOut %>% select(-preAnxBin,-postAnxBin)
 write_csv(surveyOut,"data/surveyOut.csv")
   
 ```
 
-# 4 Category Anxiety
+
+
+# BootStrapping Results
 
 ## Setup
-```{r}
-cont = data.frame(matrix(rep(0,16),nrow = 4))
 
-# Making cont table
-for (i in 1:nrow(survey)){
+```{r}
+table(survey$postAnx,survey$postDep)
+```
+0 in table for post dep ~ anx need to fix
+
+
+```{r}
+# Adding in a 1 for Anxiety 1 depression 1
+
+surveyPost = survey
+
+surveyPost[2,4] = 1
+
+table(surveyPost$postAnx,surveyPost$postDep)
+
+```
+
+## Mcnemar Test P-Values
+```{r}
+boot = function(data){
+  data_sample = data %>% sample_frac(.9)
   
-  # Pre anxiety as row
-  row = survey[i,1] 
+  # Anxiety McNemar
+  cont_anx = table(data_sample$preAnxBin, data_sample$postAnxBin)
+  test_anx = mcnemar.test(cont_anx)
+  p_anx = test_anx$p.value
+  chi_anx = test_anx$statistic
   
-  # Post anxiety as column
-  column = survey[i,2]
+  # Depression McNemar
+  cont_dep = table(data_sample$preDep, data_sample$postDep)
+  test_dep = mcnemar.test(cont_dep)
+  p_dep = test_dep$p.value
+  chi_dep = test_dep$statistic
   
-  cont[row,column] = cont[row,column] + 1
-  
+  return(list(p_anx = p_anx, chi_anx = chi_anx, p_dep = p_dep, chi_dep = chi_dep))
 }
 
+n_boot <- 200
+ps_anx <- numeric(n_boot)
+chis_anx <- numeric(n_boot)
+ps_dep <- numeric(n_boot)
+chis_dep <- numeric(n_boot)
 
-
-```
-
-## Bowker Test
-```{r}
-
-BowkerTest <- function(df) {
-  if(nrow(df))
-  
-  # Extract upper triangle and lower triangle
-  chisq <- 0
-  for (i in 1:(nrow(df) - 1)) {
-    for (j in (i + 1):ncol(df)) {
-      num <- (df[i, j] - df[j, i])^2
-      denom <- df[i, j] + df[j, i]
-      if (denom > 0) {
-        chisq <- chisq + num / denom
-      }
-    }
-  }
-  
-  dof <- (nrow(df) * (nrow(df) - 1)) / 2  # Degrees of freedom
-  pval <- pchisq(chisq, dof, lower.tail = FALSE)
-  
-  return(list(chisq = chisq, dof = dof, pval = pval))
+for (i in 1:n_boot) {
+  res <- boot(surveyPost)
+  ps_anx[i] <- res$p_anx
+  chis_anx[i] <- res$chi_anx
+  ps_dep[i] <- res$p_dep
+  chis_dep[i] <- res$chi_dep
 }
 
-result = BowkerTest(cont)
-print(result)
+ggplot() +
+  geom_histogram(aes(ps_anx), bins = 10, fill = "skyblue", alpha = 0.7) +
+  labs(title = "Bootstrap distribution of p-values: Anxiety", x = "p-value", y = "Frequency")
+
+ggplot() +
+  geom_histogram(aes(ps_dep), bins = 10, fill = "salmon", alpha = 0.7) +
+  labs(title = "Bootstrap distribution of p-values: Depression", x = "p-value", y = "Frequency")
+
+# Confidence intervals for chi-squared
+ci_chis_anx <- quantile(chis_anx, probs = c(0.025, 0.5, 0.975))
+ci_chis_dep <- quantile(chis_dep, probs = c(0.025, 0.5, 0.975))
+
+# Confidence intervals for p-values
+ci_ps_anx <- quantile(ps_anx, probs = c(0.025, 0.5, 0.975))
+ci_ps_dep <- quantile(ps_dep, probs = c(0.025, 0.5, 0.975))
+
+print("p-value Anxiety 95% CI:")
+print(ci_ps_anx)
+
+print("p-value Depression 95% CI:")
+print(ci_ps_dep)
+
 ```
 
-## Statistical Tests of Differences
+## Logistic Regression Odds Ratios and P-Values
 ```{r}
-StuartMaxwellTest(as.matrix(cont))
+boot_logistic = function(data) {
+  data_sample = data %>% sample_frac(.9)
+  
+  # Model 1: preAnxBin ~ preDep
+  mod_pre = glm(preAnxBin ~ preDep, data = data_sample, family = binomial)
+  coef_pre = coef(summary(mod_pre))["preDep", "Estimate"]
+  p_pre = coef(summary(mod_pre))["preDep", "Pr(>|z|)"]
+  
+  # Model 2: postAnxBin ~ postDep
+  mod_post = glm(postAnxBin ~ postDep, data = data_sample, family = binomial)
+  coef_post = coef(summary(mod_post))["postDep", "Estimate"]
+  p_post = coef(summary(mod_post))["postDep", "Pr(>|z|)"]
+  
+  return(list(coef_pre = coef_pre, p_pre = p_pre,
+              coef_post = coef_post, p_post = p_post))
+}
 
-mcnemar.test(as.matrix(cont + .001))
+n_boot <- 200
+coef_pre_vals <- numeric(n_boot)
+p_pre_vals <- numeric(n_boot)
+coef_post_vals <- numeric(n_boot)
+p_post_vals <- numeric(n_boot)
+
+for (i in 1:n_boot) {
+  res <- boot_logistic(survey)
+  coef_pre_vals[i] <- res$coef_pre
+  p_pre_vals[i] <- res$p_pre
+  coef_post_vals[i] <- res$coef_post
+  p_post_vals[i] <- res$p_post
+}
+
+# Odds ratios
+or_pre_vals <- exp(coef_pre_vals)
+or_post_vals <- exp(coef_post_vals)
+
+# Confidence intervals
+ci_coef_pre <- quantile(coef_pre_vals, probs = c(0.025, 0.5, 0.975))
+ci_coef_post <- quantile(coef_post_vals, probs = c(0.025, 0.5, 0.975))
+ci_or_pre <- quantile(or_pre_vals, probs = c(0.025, 0.5, 0.975))
+ci_or_post <- quantile(or_post_vals, probs = c(0.025, 0.5, 0.975))
+ci_p_pre <- quantile(p_pre_vals, probs = c(0.025, 0.5, 0.975))
+ci_p_post <- quantile(p_post_vals, probs = c(0.025, 0.5, 0.975))
+
+# Print intervals
+cat("\n95% CI for Odds Ratio (preDep → preAnxBin):\n")
+print(ci_or_pre)
+cat("\n95% CI for p-values (preDep → preAnxBin):\n")
+print(ci_p_pre)
+
+cat("\n95% CI for Odds Ratio (postDep → postAnxBin):\n")
+print(ci_or_post)
+cat("\n95% CI for p-values (postDep → postAnxBin):\n")
+print(ci_p_post)
+
+# Plot histograms
+ggplot(data.frame(p_pre = p_pre_vals[p_pre_vals < .25]), aes(x = p_pre)) +
+  geom_histogram(bins = 10, fill = "steelblue", alpha = 0.7) +
+  labs(title = "Bootstrap Distribution of P-val: preDep → preAnxBin",
+       x = "Pval", y = "Frequency") +
+  theme_minimal()
+
+ggplot(data.frame(p_post = p_post_vals[p_post_vals < .25]), aes(x = p_post)) +
+  geom_histogram(bins = 10, fill = "coral", alpha = 0.7) +
+  labs(title = "Bootstrap Distribution of P-Val: postDep → postAnxBin",
+       x = "P-val", y = "Frequency") +
+  theme_minimal()
 ```
 
-## Graphical Representation
+
+
+
+# Graphs
+
+## Setup
 ```{r}
 postCount = c(table(data.frame(survey)$postAnx))
 
@@ -169,43 +267,7 @@ anxGraph = anxGraph %>% mutate(Time = factor(Time,levels = c("Before","After")))
 
 rownames(anxGraph) <- NULL
 
-ggplot(aes(x = Category, y = Count,fill = Time),data = anxGraph) + 
-  geom_bar(stat = "identity",position = position_dodge(width = 1)) + 
-    scale_fill_brewer(palette = "Set1") + theme_minimal() + 
-  labs(x = "Anxiety Category",
-       title = "Number Indicating Anxiety Before and After HESM 285") + theme(
-    text = element_text(family = "Calibri"),
-    axis.text = element_text(family = "Calibri"),
-    axis.title = element_text(family = "Calibri"),
-    legend.text = element_text(family = "Calibri"),
-    legend.title = element_text(family = "Calibri"),
-    plot.title = element_text(family = "Calibri")
-  )
 ```
-
-# 2 Category Anxiety Test 
-
-```{r}
-cont = matrix(rep(0,4),nrow = 2)
-
-# Making cont table
-for (i in 1:nrow(survey)){
-  
-  # Pre anxiety as row
-  row = survey[i,5] + 1
-  
-  # Post anxiety as column
-  column = survey[i,6] + 1
-  
-  cont[row,column] = cont[row,column] + 1
-  
-}
-
-
-mcnemar.test(t(cont))
-```
-
-## Graph
 
 ```{r}
 postCount = c(table(survey$postAnxBin))
@@ -220,54 +282,13 @@ preDf = data.frame(cbind(Count = preCount,Category = x,Time = "Before"))
 
 anx2Graph = preDf %>% bind_rows(postDf)
 
-anx2Graph
 
 anx2Graph = anx2Graph %>% mutate(Time = factor(Time,levels = c("Before","After"))) %>%
   mutate(Category = factor(Category)) %>% 
   mutate(Count = as.numeric(Count))
 
-#rownames(anx2Graph) <- NULL
-
-
-ggplot(aes(x = Category, y = Count,fill = Time),data = anx2Graph) + 
-  geom_bar(stat = "identity",position = position_dodge(width = 1)) + 
-    scale_fill_brewer(palette = "Set1") + theme_minimal() + 
-  labs(x = "Anxiety Category",
-       title = "Number Indicating Anxiety Before and After HESM 285") + theme(
-    text = element_text(family = "Calibri"),
-    axis.text = element_text(family = "Calibri"),
-    axis.title = element_text(family = "Calibri"),
-    legend.text = element_text(family = "Calibri"),
-    legend.title = element_text(family = "Calibri"),
-    plot.title = element_text(family = "Calibri")
-  )
 ```
 
-# Depression
-
-## Setup
-```{r}
-cont = matrix(rep(0,4),nrow = 2)
-
-# Making cont table
-for (i in 1:nrow(survey)){
-  
-  # Pre anxiety as row
-  row = survey[i,3] + 1
-  
-  # Post anxiety as column
-  column = survey[i,4] + 1
-  
-  cont[row,column] = cont[row,column] + 1
-  
-}
-
-mcnemar.test(t(cont))
-
-t(cont)
-```
-
-## Graph
 ```{r}
 surveyDep = survey[-8,]
 
@@ -290,79 +311,6 @@ depGraph = depGraph %>% mutate(Time = factor(Time,levels = c("Before","After")))
 
 rownames(depGraph) <- NULL
 
-
-ggplot(aes(x = Category, y = Count,fill = Time),data = depGraph) + 
-  geom_bar(stat = "identity",position = position_dodge(width = 1)) + 
-    scale_fill_brewer(palette = "Set1") + theme_minimal() + 
-  labs(x = "Depressed",
-       title = "Number Indicating Depression Before and After HESM 285") + theme(
-    text = element_text(family = "Calibri"),
-    axis.text = element_text(family = "Calibri"),
-    axis.title = element_text(family = "Calibri"),
-    legend.text = element_text(family = "Calibri"),
-    legend.title = element_text(family = "Calibri"),
-    plot.title = element_text(family = "Calibri")
-  )
-```
-
-# Logistic Regression
-
-## 4 Category Anxiety
-
-### Setup
-
-```{r}
-table(survey$postAnx,survey$postDep)
-```
-0 in table for post dep ~ anx need to fix
-
-
-```{r}
-# Adding in a 1 for Anxiety 1 depression 1
-
-surveyPost = survey
-
-surveyPost[2,4] = 1
-
-table(surveyPost$postAnx,surveyPost$postDep)
-
-```
-Altering data to make logistic regression possible by changing one row to have 1 instead of 0
-
-### Results
-```{r}
-postLM = glm(factor(postDep) ~ factor(postAnx), data = surveyPost,family = binomial)
-
-summary(postLM)
-
-preLM = glm(factor(preDep) ~ factor(preAnx), data = survey,family = binomial)
-
-summary(preLM)
-```
-
-## 2 Category Anxiety
-
-```{r}
-postLM = glm(factor(postDep) ~ factor(postAnxBin), data = survey,family = binomial)
-
-summary(postLM)
-c
-preLM = glm(factor(preDep) ~ factor(preAnxBin), data = survey,family = binomial)
-
-summary(preLM)
-
-```
-
-```{r}
-postLM = glm(factor(preDep) ~ factor(preAnx2Bin), data = surveyOut,family = binomial)
-
-
-summary(postLM)
-
-table(surveyOut$preDep,surveyOut$preAnx3Bin)
-
-
-write_csv(surveyOut[-8,],"data/surveyOutNARM.csv",)
 ```
 
 ```{r}
@@ -370,42 +318,44 @@ A = data.frame(Dep = surveyOut$postDep, Anx = surveyOut$postAnx2Bin)
 
 postGraph = table(A$Dep,A$Anx) %>% data.frame() %>% rename("Depression" = Var1,"Anxiety" = Var2,"Count" = Freq)
 
-ggplot(aes(x = Anxiety, y = Count,fill = Depression),data = postGraph) + 
-  geom_bar(stat = "identity",position = position_dodge(width = 1)) + 
-    scale_fill_brewer(palette = "Set2") + theme_minimal() + scale_y_continuous(breaks = seq(0, 12, by = 4), limits = c(0, 13)) + 
-  labs(x = "Anxiety Category",
-       title = "Anxiety Versus Depression Post HESM 285") + theme(
-    text = element_text(family = "Calibri"),
-    axis.text = element_text(family = "Calibri"),
-    axis.title = element_text(family = "Calibri"),
-    legend.text = element_text(family = "Calibri"),
-    legend.title = element_text(family = "Calibri"),
-    plot.title = element_text(family = "Calibri")
-  )
-
-
-
 ```
 
 ```{r}
 A = data.frame(Dep = surveyOut$preDep, Anx = surveyOut$preAnx2Bin)
 
 preGraph = table(A$Dep,A$Anx) %>% data.frame() %>% rename("Depression" = Var1,"Anxiety" = Var2,"Count" = Freq)
+```
 
-ggplot(aes(x = Anxiety, y = Count,fill = Depression),data = preGraph) + 
+## Depression Graph 
+
+```{r}
+
+depGraph$Category <- c("Not Depressed","Depressed")
+ggplot(aes(x = Category, y = Count,fill = Time),data = depGraph) + 
   geom_bar(stat = "identity",position = position_dodge(width = 1)) + 
-    scale_fill_brewer(palette = "Set2") + theme_minimal() + 
-  labs(x = "Anxiety Category",
-       title = "Anxiety Versus Depression Pre HESM 285") + theme(
+    theme_minimal() + 
+  scale_x_discrete(limits = c("Not Depressed","Depressed")) + 
+  scale_fill_manual(
+    values = c(
+      "Before" = "#DF2C1A",
+      "After" = "#397DB5"
+    )
+  ) + 
+  labs(x = "Depression",
+       title = "Depression Before and After HESM 285",
+       y = "Number of Studetnts") +  theme(
     text = element_text(family = "Calibri"),
     axis.text = element_text(family = "Calibri"),
+    axis.title.y = element_text(family = "Calibri",vjust = .5),
     axis.title = element_text(family = "Calibri"),
     legend.text = element_text(family = "Calibri"),
     legend.title = element_text(family = "Calibri"),
-    plot.title = element_text(family = "Calibri")
+    plot.title = element_text(family = "Calibri",face = "bold",hjust = .5)
   )
-```
 
+ggsave("graph/depression.png",width = 6, height = 4,dpi = 300,bg = "white")
+
+```
 
 ## 4 Cat Anx Graph
 
@@ -413,7 +363,6 @@ ggplot(aes(x = Anxiety, y = Count,fill = Depression),data = preGraph) +
 
 anxGraph = anxGraph %>% mutate(Category = if_else(is.na(Category),"Low",Category))
 
-anxGraph$Category
 ggplot(aes(x = Category, y = Count,fill = Time),data = anxGraph) + 
   geom_bar(stat = "identity",position = position_dodge(width = 1)) + 
   theme_minimal() + 
@@ -435,7 +384,7 @@ ggplot(aes(x = Category, y = Count,fill = Time),data = anxGraph) +
     legend.title = element_text(family = "Calibri"),
     plot.title = element_text(family = "Calibri",hjust = .5,face = "bold")
   )
-ggsave("GraphV3/anx4cat.png",width = 6, height = 4,dpi = 300,bg = "white")
+ggsave("graph/anx4cat.png",width = 6, height = 4,dpi = 300,bg = "white")
 
 ```
 
@@ -468,7 +417,7 @@ ggplot(aes(x = Category, y = Count,fill = Time),data = anx2Graph) +
     # legend.position = c(1,1)
     
   )
-ggsave("GraphV3/anx2cat.png",width = 6, height = 4,dpi = 300,bg = "white")
+ggsave("graph/anx2cat.png",width = 6, height = 4,dpi = 300,bg = "white")
 ```
 
 
@@ -497,7 +446,7 @@ ggplot(aes(x = Anxiety, y = Count, fill = Depression), data = postGraph) +
   )
 
 
-ggsave("GraphV3/anxDepPost.png",width = 6, height = 4,dpi = 300,bg = "white")
+ggsave("graph/anxDepPost.png",width = 6, height = 4,dpi = 300,bg = "white")
 
 ```
 
@@ -522,41 +471,6 @@ ggplot(aes(x = Anxiety, y = Count,fill = Depression),data = preGraph) +
     legend.title = element_text(family = "Calibri"),
     plot.title = element_text(family = "Calibri",hjust = .5,face = "bold")
   )
-ggsave("GraphV3/anxDepPre.png",width = 6, height = 4,dpi = 300,bg = "white")
+ggsave("graph/anxDepPre.png",width = 6, height = 4,dpi = 300,bg = "white")
 
 ```
-## Depression Graph 
-
-```{r}
-
-depGraph$Category <- c("Not Depressed","Depressed")
-ggplot(aes(x = Category, y = Count,fill = Time),data = depGraph) + 
-  geom_bar(stat = "identity",position = position_dodge(width = 1)) + 
-    theme_minimal() + 
-  scale_x_discrete(limits = c("Not Depressed","Depressed")) + 
-  scale_fill_manual(
-    values = c(
-      "Before" = "#DF2C1A",
-      "After" = "#397DB5"
-    )
-  ) + 
-  labs(x = "Depression",
-       title = "Depression Before and After HESM 285",
-       y = "Number of Studetnts") +  theme(
-    text = element_text(family = "Calibri"),
-    axis.text = element_text(family = "Calibri"),
-    axis.title.y = element_text(family = "Calibri",vjust = .5),
-    axis.title = element_text(family = "Calibri"),
-    legend.text = element_text(family = "Calibri"),
-    legend.title = element_text(family = "Calibri"),
-    plot.title = element_text(family = "Calibri",face = "bold",hjust = .5)
-  )
-
-ggsave("GraphV3/depression.png",width = 6, height = 4,dpi = 300,bg = "white")
-
-```
-
-```{r}
-
-```
-
